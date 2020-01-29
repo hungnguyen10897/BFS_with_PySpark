@@ -4,6 +4,7 @@ Implementation of BFS using PySpark
 
 import pyspark
 from pyspark import SparkContext, SparkConf
+from listAcuumulator import ListAccumulator
 
 def getHeroNamesDict():
     hero_names = {}
@@ -27,6 +28,17 @@ def initial_data_setup(element, hero_id_source):
     distance = 9999 if element[0] != hero_id_source else 0
     return (element[0],(element[1],distance, color))
 
+def iteration_process(element, blue_node_ids):
+    global 
+    color = element[1][2]
+    id = element[0]
+    if color == "BLUE":
+        element[1][2] = "BLACK"
+    elif color == "BLACK":
+        if id in blue_node_ids:
+            element[1][2] == "BLUE"
+
+
 def hero_seperation(hero_id_source, hero_id_target):
     
     conf = SparkConf().setMaster('local').setAppName('Marvel_Heroes_seperation')
@@ -43,11 +55,11 @@ def hero_seperation(hero_id_source, hero_id_target):
     rdd1 = lines.map(initial_process_line).reduceByKey(lambda x,y: list(set(x).union(set(y)))).map(lambda x: initial_data_setup(x, hero_id_source))
     #After this, each item will have type: (hero_id, (connections, distance_from_source, color)). E.g: ('12',(['14','33'],4,'WHITE'))
 
-    rdd1.persist()
+    #rdd1.persist()
 
     #Iterations
     while True:
-        
+        #Take ids of blue nodes
+        blue_node_ids = map(lambda x: x[0], rdd1.filter(lambda x: x[1][2] == "BLUE").collect())
 
-
-
+        rdd1 = rdd1.map(lambda x: iteration_process(x, blue_node_ids))

@@ -23,26 +23,26 @@ def initial_process_line(line):
     parts = line.split(' ')
     return (parts[0], (parts[1:], 9999, False))
 
-def iteration_process(element, to_visit_ids):
+def iteration_process(element, to_visit_ids, distance):
     global to_visit_ids_accu
     global found_target
     
     id = element[0]
     visited = element[1][2]
 
-    if visited == False and id in to_visit_ids:
+    if visited is False and id in to_visit_ids:
         print(f"VISITING {id}")
         if id == hero_id_target_broadcast.value:
             found_target += 1
         visited = True
         to_visit_ids_accu.add(set(element[1][0]))
 
-    return (element[0], element[1], visited)
+    return (element[0], (element[1][0], distance, visited))
 
 if __name__ == "__main__":
 
-    hero_id_source = '3518'
-    hero_id_target = '3519'
+    hero_id_source = '5988'
+    hero_id_target = '5983'
 
     conf = SparkConf().setMaster('local').setAppName('Marvel_Heroes_seperation')
     sc = SparkContext(conf = conf)
@@ -76,7 +76,7 @@ if __name__ == "__main__":
         print("TO VISITS: ")
         print(to_visit_ids)
 
-        rdd1 = rdd1.map(lambda x: iteration_process(x, to_visit_ids))
+        rdd1 = rdd1.map(lambda x: iteration_process(x, to_visit_ids, distance))
         print(rdd1.count())        
         
         if found_target.value > 0:

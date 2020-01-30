@@ -30,19 +30,22 @@ def iteration_process(element, to_visit_ids, distance):
     id = element[0]
     visited = element[1][2]
 
-    if visited is False and id in to_visit_ids:
-        print(f"VISITING {id}")
+    if (visited is False) and (id in to_visit_ids):
+
+        print(f"VISITING {id} - {str(visited)}")
         if id == hero_id_target_broadcast.value:
             found_target += 1
         visited = True
-        to_visit_ids_accu.add(set(element[1][0]))
+        to_visit_ids_accu.add(set(element[1][0]))\
+        
+        return (id, (element[1][0], distance, True))
 
-    return (element[0], (element[1][0], distance, visited))
+    return (id, (element[1][0], distance, visited))
 
 if __name__ == "__main__":
 
-    hero_id_source = '5988'
-    hero_id_target = '5983'
+    hero_id_source = '3518'
+    hero_id_target = '3519'
 
     conf = SparkConf().setMaster('local').setAppName('Marvel_Heroes_seperation')
     sc = SparkContext(conf = conf)
@@ -62,8 +65,6 @@ if __name__ == "__main__":
     rdd1 = lines.map(initial_process_line).reduceByKey(lambda x,y: (set(x[0]).union(set(y[0])), x[1], x[2]))
     #After this, each item will have type: (hero_id, (connections, distance_from_source, visited)). E.g: ('12',(['14','33'],4,False))
 
-    #rdd1.persist()
-
     to_visit_ids_accu.add({hero_id_source})
 
     distance = 0
@@ -71,13 +72,24 @@ if __name__ == "__main__":
     while True:
         #Take ids of nodes to visit
         to_visit_ids = to_visit_ids_accu.value
+
+        #No more nodes to visit
+        if len(to_visit_ids) == 0:
+            print(f"No connection between {hero_id_source} and {hero_id_target}.")
+            break
+
         to_visit_ids_accu = sc.accumulator(set(), SetAccumulator())
 
-        print("TO VISITS: ")
+        print("TO VISIT: ")
         print(to_visit_ids)
 
         rdd1 = rdd1.map(lambda x: iteration_process(x, to_visit_ids, distance))
-        print(rdd1.count())        
+
+        #Without persist() the whole algorithm won't work, not sure why!
+        rdd1.persist()
+
+        #Trigger RDD computation
+        rdd1.count()
         
         if found_target.value > 0:
             print(f"Seperation between {hero_id_source} and {hero_id_target} is {str(distance)}")

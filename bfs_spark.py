@@ -4,7 +4,7 @@ Implementation of BFS using PySpark
 
 import pyspark
 from pyspark import SparkContext, SparkConf
-from listAcuumulator import ListAccumulator
+from setAccumulator import SetAccumulator
 
 def getHeroNamesDict():
     hero_names = {}
@@ -21,28 +21,35 @@ def getHeroNamesDict():
 def initial_process_line(line):
     line = line.strip()
     parts = line.split(' ')
-    return (parts[0], parts[1:])
+    return (parts[0], (parts[1:], 9999, False))
 
-def initial_data_setup(element, hero_id_source):
-    color = 'WHITE' if element[0] != hero_id_source else 'BLUE'
-    distance = 9999 if element[0] != hero_id_source else 0
-    return (element[0],(element[1],distance, color))
-
-def iteration_process(element, blue_node_ids):
-    global 
-    color = element[1][2]
-    id = element[0]
-    if color == "BLUE":
-        element[1][2] = "BLACK"
-    elif color == "BLACK":
-        if id in blue_node_ids:
-            element[1][2] == "BLUE"
-
-
-def hero_seperation(hero_id_source, hero_id_target):
+def iteration_process(element, to_visit_ids):
+    global to_visit_ids_accu
+    global found_target
     
+    id = element[0]
+    visited = element[1][2]
+
+    if visited == False and id in to_visit_ids:
+        print(f"VISITING {id}")
+        if id == hero_id_target_broadcast.value:
+            found_target += 1
+        visited = True
+        to_visit_ids_accu.add(set(element[1][0]))
+
+    return (element[0], element[1], visited)
+
+if __name__ == "__main__":
+
+    hero_id_source = '3518'
+    hero_id_target = '3519'
+
     conf = SparkConf().setMaster('local').setAppName('Marvel_Heroes_seperation')
     sc = SparkContext(conf = conf)
+
+    to_visit_ids_accu = sc.accumulator(set(), SetAccumulator())
+    found_target =sc.accumulator(0)
+    hero_id_target_broadcast = sc.broadcast(hero_id_target)
 
     lines = sc.textFile("./data/Marvel-Graph.txt")
 
@@ -52,14 +59,28 @@ def hero_seperation(hero_id_source, hero_id_target):
     # print(res)
 
     #Inital processing of dataset
-    rdd1 = lines.map(initial_process_line).reduceByKey(lambda x,y: list(set(x).union(set(y)))).map(lambda x: initial_data_setup(x, hero_id_source))
-    #After this, each item will have type: (hero_id, (connections, distance_from_source, color)). E.g: ('12',(['14','33'],4,'WHITE'))
+    rdd1 = lines.map(initial_process_line).reduceByKey(lambda x,y: (set(x[0]).union(set(y[0])), x[1], x[2]))
+    #After this, each item will have type: (hero_id, (connections, distance_from_source, visited)). E.g: ('12',(['14','33'],4,False))
 
     #rdd1.persist()
 
+    to_visit_ids_accu.add({hero_id_source})
+
+    distance = 0
     #Iterations
     while True:
-        #Take ids of blue nodes
-        blue_node_ids = map(lambda x: x[0], rdd1.filter(lambda x: x[1][2] == "BLUE").collect())
+        #Take ids of nodes to visit
+        to_visit_ids = to_visit_ids_accu.value
+        to_visit_ids_accu = sc.accumulator(set(), SetAccumulator())
 
-        rdd1 = rdd1.map(lambda x: iteration_process(x, blue_node_ids))
+        print("TO VISITS: ")
+        print(to_visit_ids)
+
+        rdd1 = rdd1.map(lambda x: iteration_process(x, to_visit_ids))
+        print(rdd1.count())        
+        
+        if found_target.value > 0:
+            print(f"Seperation between {hero_id_source} and {hero_id_target} is {str(distance)}")
+            break
+
+        distance += 1

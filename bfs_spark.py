@@ -44,8 +44,8 @@ def iteration_process(element, to_visit_ids, distance):
 
 if __name__ == "__main__":
 
-    hero_id_source = '3518'
-    hero_id_target = '3519'
+    hero_id_source = '3513'
+    hero_id_target = '3759'
 
     conf = SparkConf().setMaster('local').setAppName('Marvel_Heroes_seperation')
     sc = SparkContext(conf = conf)
